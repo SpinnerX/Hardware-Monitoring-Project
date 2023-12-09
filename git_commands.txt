@@ -9,3 +9,5 @@ Example: git branch featrure_1
 // showing logs of commits
 git log
 
+// To push the branches instead of making them locally and push them to github
+// is by doing git push origin <branch_name>
