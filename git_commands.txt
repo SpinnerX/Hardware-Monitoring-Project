@@ -1,0 +1,11 @@
+// These are some commands that wil be utilized 
+// Command for merging branchs
+git merge master
+
+// Change between branches
+git branch <branch_name>
+Example: git branch featrure_1
+
+// showing logs of commits
+git log
+
