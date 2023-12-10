@@ -1,4 +1,4 @@
-from modules.SystemMonitor import SystemMonitor
+from modules.HardwareFailureMonitor import SystemMonitor
 from PyQt5.QtWidgets import QApplication
 import sys
 
