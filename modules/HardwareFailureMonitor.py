@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QDesktopWidget, QTabWidget, QWidget, QApplication, Q
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
 from PyQt5.QtGui import QPainter
 from PyQt5.QtCore import QTimer
+import GPUtil
 
 class SystemMonitor(QWidget):
     def __init__(self):
@@ -13,6 +14,13 @@ class SystemMonitor(QWidget):
 
         # Aligning the window to open up the center of our screen
         self.move(QDesktopWidget().availableGeometry().center() - self.frameGeometry().center())
+
+        self.GPUInfo = GPUtil.getGPUs()
+
+        self.gpusFound = False
+
+        if self.GPUInfo:
+            self.gpusFound = True
 
         self.tabWidget = QTabWidget()
         self.tab1 = QWidget()
@@ -32,6 +40,7 @@ class SystemMonitor(QWidget):
         self.cpu_series = QLineSeries()
         self.mem_series = QLineSeries()
         self.disk_series = QLineSeries()
+        self.gpu_series = QLineSeries()
 
         self.chart = QChart()
 
@@ -50,6 +59,11 @@ class SystemMonitor(QWidget):
         self.chart.setAxisY(self.axisY, self.mem_series)
         self.chart.setAxisX(self.axisX, self.disk_series)
         self.chart.setAxisY(self.axisY, self.disk_series)
+
+        # Checking if GPUS are found on our current OS, we are running
+        if self.gpusFound:
+            self.chart.setAxisX(self.axisX, self.gpu_series)
+            self.chart.setAxisY(self.axisY, self.gpu_series)
 
         self.chart_view = QChartView(self.chart)
         self.chartLayout.addWidget(self.chart_view)
@@ -94,13 +108,20 @@ class SystemMonitor(QWidget):
         self.cpu_series.setName(f'CPU Usage: {cpu_percent}%')
         self.mem_series.setName(f'Memory Usage: {mem_percent}%')
         self.disk_series.setName(f'Disk Usage: {disk_percent}%')
+        
+        # Only run this line of code, if there are GPU's on the users system.
+        if self.gpusFound:
+            #[0] - ID, [1] - name, [2], usage
+            self.gpu_series.setName(f"GPU ({self.GPUInfo[1]}) Usage: {self.GPUInfo[2]}")
 
         self.data_count += 1
 
+    # Showing our currenly running task
     def showCurrentRunningTaskProcess(self):
         for process in psutil.process_iter(['pid', 'name', 'status']):
             self.list_widget.addItem(f"[PID={process.info['pid']}, Status={process.info['status']}] --- {process.info['name']} is currently running")
 
+    # Killing our process when clicking the QPushButton
     def killProcess(self):
         currentItem = self.list_widget.currentItem()
 
