@@ -1,81 +1,116 @@
-import psutil
 import sys
-from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget, QProgressBar, QStatusBar, QListWidget, QPushButton
+import psutil
+from PyQt5.QtWidgets import QDesktopWidget, QTabWidget, QWidget, QApplication, QMainWindow, QPushButton, QVBoxLayout, QListWidget
+from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
+from PyQt5.QtGui import QPainter
 from PyQt5.QtCore import QTimer
 
 class SystemMonitor(QWidget):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("Hardware Failure Monitor")
+        self.resize(1080, 800) # resizing our window to be larger
 
-        self.setWindowTitle('System Monitor')
+        # Aligning the window to open up the center of our screen
+        self.move(QDesktopWidget().availableGeometry().center() - self.frameGeometry().center())
 
+        self.tabWidget = QTabWidget()
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        self.tabWidget.addTab(self.tab1, "Diagnostics")
+        self.tabWidget.addTab(self.tab2, "Tasks")
+        self.sidebar = QWidget()
+
+        # Where we store all our layouts
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
+        self.layout.addWidget(self.tabWidget)
 
-        # CPU Usage
-        self.cpu_label = QLabel()
-        self.cpu_progress = QProgressBar()
-        self.layout.addWidget(self.cpu_label)
-        self.layout.addWidget(self.cpu_progress)
 
-        # Memory Usage
-        self.mem_label = QLabel()
-        self.mem_progress = QProgressBar()
-        self.layout.addWidget(self.mem_label)
-        self.layout.addWidget(self.mem_progress)
-        
-        # Disk Usage
-        self.disk_label = QLabel()
-        self.disk_progress = QProgressBar()
-        self.layout.addWidget(self.disk_label)
-        self.layout.addWidget(self.disk_progress)
+        # Chart related UI setup
+        self.chartLayout = QVBoxLayout()
+        self.cpu_series = QLineSeries()
+        self.mem_series = QLineSeries()
+        self.disk_series = QLineSeries()
 
-        # Status Bar
-        self.statusbar = QStatusBar()
-        self.layout.addWidget(self.statusbar)
-        self.statusbar.showMessage("Monitor started")
+        self.chart = QChart()
 
+        # Coordinates Axis
+        self.axisX = QValueAxis()
+        self.axisY = QValueAxis()
+
+        # These are setting the chart data squares at the top
+        self.chart.addSeries(self.cpu_series)
+        self.chart.addSeries(self.mem_series)
+        self.chart.addSeries(self.disk_series)
+
+        self.chart.setAxisX(self.axisX, self.cpu_series)
+        self.chart.setAxisY(self.axisY, self.cpu_series)
+        self.chart.setAxisX(self.axisX, self.mem_series)
+        self.chart.setAxisY(self.axisY, self.mem_series)
+        self.chart.setAxisX(self.axisX, self.disk_series)
+        self.chart.setAxisY(self.axisY, self.disk_series)
+
+        self.chart_view = QChartView(self.chart)
+        self.chartLayout.addWidget(self.chart_view)
+        self.tab1.setLayout(self.chartLayout)
+
+        # Will contain a list of widgets
+        self.tasksLayout = QVBoxLayout()
         self.list_widget = QListWidget()
-        self.layout.addWidget(self.list_widget)
+        self.tasksLayout.addWidget(self.list_widget)
 
+        # Adding Killing Process button
         self.killProcessButton = QPushButton('Kill Process')
-        self.layout.addWidget(self.killProcessButton)
+        self.tasksLayout.addWidget(self.killProcessButton)
         self.killProcessButton.clicked.connect(self.killProcess)
-        self.layout.addWidget(self.killProcessButton)
+        self.tasksLayout.addWidget(self.killProcessButton)
+        self.tab2.setLayout(self.tasksLayout)
 
-        # Timer for periodical update of values
         self.timer = QTimer()
         self.timer.timeout.connect(self.hardwareUsage)
-        self.timer.start(2000)  # Refresh every 2 seconds
-        self.updateProcessList()
-        
+        self.timer.start(1000)  # Refresh every second
+
+        self.data_count = 0
+
+        self.showCurrentRunningTaskProcess()
+
+    # 
     def hardwareUsage(self):
         cpu_percent = psutil.cpu_percent()
-        self.cpu_label.setText(f'CPU Usage: {cpu_percent}%')
-        self.cpu_progress.setValue(int(cpu_percent))
+        mem_info = psutil.virtual_memory()
+        mem_percent = mem_info.percent
+        disk_info = psutil.disk_usage('/')
+        disk_percent = disk_info.percent
 
-        mem = psutil.virtual_memory()
-        self.mem_label.setText(f'Memory Usage: {mem.percent}%')
-        self.mem_progress.setValue(int(mem.percent))
+        self.cpu_series.append(self.data_count, cpu_percent)
+        self.mem_series.append(self.data_count, mem_percent)
+        self.disk_series.append(self.data_count, disk_percent)
 
-        disk = psutil.disk_usage('/')
-        self.disk_label.setText(f'Disk Usage: {disk.percent}%')
-        self.disk_progress.setValue(int(disk.percent))
+        #  Update rendering out axis's
+        self.axisX.setRange(0, self.data_count)
+        self.axisY.setRange(0, 100)
 
-        # Check for high resource usage and present a warning if necessary
-        if cpu_percent > 90 or mem.percent > 80 or disk.percent > 80:
-            self.statusbar.showMessage('Warning: High resource usage detected')
-        else:
-            self.statusbar.showMessage('Resources usage is normal')
+        self.cpu_series.setName(f'CPU Usage: {cpu_percent}%')
+        self.mem_series.setName(f'Memory Usage: {mem_percent}%')
+        self.disk_series.setName(f'Disk Usage: {disk_percent}%')
 
-    def updateProcessList(self):
+        self.data_count += 1
+
+    def showCurrentRunningTaskProcess(self):
         for process in psutil.process_iter(['pid', 'name', 'status']):
-            self.list_widget.addItem(f"PID: {process.info['pid']}, Name: {process.info['name']}, Status: {process.info['status']}")
-    
+            self.list_widget.addItem(f"[PID={process.info['pid']}, Status={process.info['status']}] --- {process.info['name']} is currently running")
+
     def killProcess(self):
         currentItem = self.list_widget.currentItem()
+
         if currentItem:
-            pid = int(currentItem.text().split()[1][:-1]) # Extracting PID from string
+            # Parsing text
+            text = currentItem.text()
+            parsed_pid1 = text.split('=') # Splitting on = char
+            string = parsed_pid1[1].split(',') # Splitting string on , char
+            pid = int(string[0])
+            self.list_widget.takeItem(text)
             process = psutil.Process(pid)
             process.kill()
-            self.update_process_list() # Refreshint processed list
+            self.showCurrentRunningTaskProcess() # Refreshing processed list
