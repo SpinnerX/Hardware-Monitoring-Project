@@ -22,6 +22,7 @@ import numpy as np
 import tensorflow.compat.v2 as tf
 
 #from tensorflow_probability.python.distributions.internal import statistical_testing as st
+import statistical_testing as st
 from tensorflow_probability.python.internal import test_util
 # pylint: disable=g-error-prone-assert-raises
 
@@ -243,6 +244,96 @@ class StatisticalTestingTest(test_util.TestCase):
 
     check_catches_mistake([0.1, 0.2, 0.3, 0.3, 0.1])
     check_catches_mistake([0.2, 0.2, 0.3, 0.3])
+
+  @parameterized.parameters(np.float32, np.float64)
+  def test_dkwm_design_mean_one_sample_soundness(self, dtype):
+    self.assert_design_soundness(
+        dtype,
+        functools.partial(
+            st.min_num_samples_for_dkwm_mean_test, low=0., high=1.),
+        functools.partial(
+            st.min_discrepancy_of_true_means_detectable_by_dkwm,
+            low=0., high=1.))
+
+  def assert_design_soundness_two_sample(
+      self, dtype, min_num_samples, min_discrepancy):
+    thresholds = [1e-5, 1e-2, 1.1e-1, 0.9, 1., 1.02, 2., 10., 1e2, 1e5, 1e10]
+    rates = [1e-6, 1e-3, 1e-2, 1.1e-1, 0.2, 0.5, 0.7, 1.]
+    false_fail_rates, false_pass_rates = np.meshgrid(rates, rates)
+    false_fail_rates = false_fail_rates.flatten().astype(dtype=dtype)
+    false_pass_rates = false_pass_rates.flatten().astype(dtype=dtype)
+
+    detectable_discrepancies = []
+    for false_pass_rate, false_fail_rate in zip(
+        false_pass_rates, false_fail_rates):
+      [
+          sufficient_n1,
+          sufficient_n2
+      ] = min_num_samples(
+          thresholds,
+          false_fail_rate=false_fail_rate,
+          false_pass_rate=false_pass_rate)
+
+      detectable_discrepancies.append(
+          min_discrepancy(
+              n1=sufficient_n1,
+              n2=sufficient_n2,
+              false_fail_rate=false_fail_rate,
+              false_pass_rate=false_pass_rate))
+
+    detectable_discrepancies_ = self.evaluate(detectable_discrepancies)
+    for discrepancies, false_pass_rate, false_fail_rate in zip(
+        detectable_discrepancies_, false_pass_rates, false_fail_rates):
+      below_threshold = discrepancies <= thresholds
+      self.assertAllEqual(
+          np.ones_like(below_threshold, np.bool_), below_threshold,
+          msg='false_pass_rate({}), false_fail_rate({})'.format(
+              false_pass_rate, false_fail_rate))
+      bound_tight = thresholds <= discrepancies * 2
+      self.assertAllEqual(
+          np.ones_like(bound_tight, np.bool_), bound_tight,
+          msg='false_pass_rate({}), false_fail_rate({})'.format(
+              false_pass_rate, false_fail_rate))
+
+  @parameterized.parameters(np.float32, np.float64)
+  def test_dkwm_design_cdf_two_sample_soundness(self, dtype):
+    self.assert_design_soundness_two_sample(
+        dtype, st.min_num_samples_for_dkwm_cdf_two_sample_test,
+        st.min_discrepancy_of_true_cdfs_detectable_by_dkwm_two_sample)
+
+  @parameterized.parameters(np.float32, np.float64)
+  def test_dkwm_design_mean_two_sample_soundness(self, dtype):
+    min_num_samples = functools.partial(
+        st.min_num_samples_for_dkwm_mean_two_sample_test,
+        low1=0., high1=1., low2=0., high2=1.)
+    min_discrepancy = functools.partial(
+        st.min_discrepancy_of_true_means_detectable_by_dkwm_two_sample,
+        low1=0., high1=1., low2=0., high2=1.)
+    self.assert_design_soundness_two_sample(
+        dtype, min_num_samples, min_discrepancy)
+
+  @parameterized.parameters(np.float32, np.float64)
+  def test_true_mean_confidence_interval_by_dkwm_one_sample(self, dtype):
+    rng = np.random.RandomState(seed=0)
+
+    num_samples = 5000
+    # 5000 samples is chosen to be enough to find discrepancies of
+    # size 0.1 or more with assurance 1e-6, as confirmed here:
+    d = st.min_discrepancy_of_true_means_detectable_by_dkwm(
+        num_samples, 0., 1., false_fail_rate=1e-6, false_pass_rate=1e-6)
+    d = self.evaluate(d)
+    self.assertLess(d, 0.1)
+
+    # Test that the confidence interval computed for the mean includes
+    # 0.5 and excludes 0.4 and 0.6.
+    samples = rng.uniform(size=num_samples).astype(dtype=dtype)
+    (low, high) = st.true_mean_confidence_interval_by_dkwm(
+        samples, 0., 1., error_rate=1e-6)
+    low, high = self.evaluate([low, high])
+    self.assertGreater(low, 0.4)
+    self.assertLess(low, 0.5)
+    self.assertGreater(high, 0.5)
+    self.assertLess(high, 0.6)
 
   @parameterized.parameters(np.float32, np.float64)
   def test_dkwm_mean_one_sample_assertion(self, dtype):
