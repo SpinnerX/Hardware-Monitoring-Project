@@ -1,8 +1,6 @@
-import sys
 import psutil
 from PyQt5.QtWidgets import QDesktopWidget, QTabWidget, QWidget, QApplication, QMainWindow, QPushButton, QVBoxLayout, QListWidget
 from PyQt5.QtChart import QChart, QChartView, QLineSeries, QValueAxis
-from PyQt5.QtGui import QPainter
 from PyQt5.QtCore import QTimer
 import GPUtil
 
@@ -25,8 +23,10 @@ class SystemMonitor(QWidget):
         self.tabWidget = QTabWidget()
         self.tab1 = QWidget()
         self.tab2 = QWidget()
+        self.tab3 = QWidget()
         self.tabWidget.addTab(self.tab1, "Diagnostics")
         self.tabWidget.addTab(self.tab2, "Tasks")
+        self.tabWidget.addTab(self.tab3, "Report")
         self.sidebar = QWidget()
 
         # Where we store all our layouts
@@ -55,8 +55,10 @@ class SystemMonitor(QWidget):
 
         self.chart.setAxisX(self.axisX, self.cpu_series)
         self.chart.setAxisY(self.axisY, self.cpu_series)
+
         self.chart.setAxisX(self.axisX, self.mem_series)
         self.chart.setAxisY(self.axisY, self.mem_series)
+
         self.chart.setAxisX(self.axisX, self.disk_series)
         self.chart.setAxisY(self.axisY, self.disk_series)
 
@@ -131,7 +133,6 @@ class SystemMonitor(QWidget):
             parsed_pid1 = text.split('=') # Splitting on = char
             string = parsed_pid1[1].split(',') # Splitting string on , char
             pid = int(string[0])
-            self.list_widget.takeItem(text)
             process = psutil.Process(pid)
             process.kill()
             self.showCurrentRunningTaskProcess() # Refreshing processed list
