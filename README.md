@@ -29,3 +29,6 @@ For this project, we will utilize ML prediction models for predicting hardware f
 - Hardware failure prediction is supposed to allow us to be isolate when a failure occurr happens \
     in the hardware level.
 - Allowing us to prevent any loss in productivity.
+
+# Demonstration of the project output
+https://github.com/SpinnerX/Hardware-Monitoring-Project/assets/56617292/e2c483eb-9ab3-4a28-a8ab-30e51a29a8f2
