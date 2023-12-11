@@ -8,33 +8,46 @@ import GPUtil
 import diskinfo
 
 def main():
-	#Parsing the dataset.
-	"""
-	#The number of useful lines is only about 10.
-	NUM_USEFUL_LINES = 10
 	#Path to the dataset.
-	PATH = f"{os.getcwd()}/data_Q3_2023/data_Q3_2023/"
+	path = f"{os.getcwd()}/data_Q3_2023/data_Q3_2023/"
 	#List to hold lists which have data of every file.
 	superList = []
 	
 	#For every csv file in the dataset...
-	for csvfile in os.listdir(PATH):
-		#Open the file, get its contents in a clean and iteratble format.
-		file = open(PATH + csvfile)
+	for csvfile in os.listdir(path):
+		#Open the file, get the header, then contents in a clean and iteratble format.
+		file = open(path + csvfile)
+		header = next(file).split(',')
 		contents = list(csv.reader(file, delimiter=','))
+
+		#Notable SMART attribute indicators for failure (i.e. these are the indexes for searching the dataset).
+		MODEL 			= header.index("model")
+		FAILURE			= header.index("failure") 
+		REALLOC_SEC_COUNT 	= header.index("smart_5_raw")
+		WEAR_LEVEL_COUNT 	= header.index("smart_173_raw")
+		ERASE_FAIL_COUNT 	= header.index("smart_176_raw")
+		PENDING_SEC_COUNT 	= header.index("smart_197_raw")
+		UNCORRECTABLE_SEC_COUNT = header.index("smart_198_raw")
+		DRIVE_TEMP 		= header.index("smart_231_raw")
+			
 		#For every row in the file's contents...
 		for row in contents:
 			fileList = []
 
-			for i in range(len(row)):
-				if (i <= NUM_USEFUL_LINES): 
-					fileList.append(row[i])
-					i += 1
-#			print(fileList)
+			fileList.append(row[MODEL]) 			#Store model
+			fileList.append(row[FAILURE]) 			#Store its failure status
+			fileList.append(row[REALLOC_SEC_COUNT]) 	#Store its wear leveling count
+			fileList.append(row[WEAR_LEVEL_COUNT]) 		#Store its wear leveling count
+			fileList.append(row[ERASE_FAIL_COUNT]) 		#Store its erase failure count
+			fileList.append(row[PENDING_SEC_COUNT]) 	#Store its current pending sector count
+			fileList.append(row[UNCORRECTABLE_SEC_COUNT]) 	#Store its uncorrectable secotors count
+			fileList.append(row[DRIVE_TEMP]) 		#Store its drive temperature
+
 		superList.append(fileList)
 	
-#	print(superList)
+	print(superList)
 
+"""
 	#Demo code for platform, psutil, cputil, GPUtil, and diskinfo modules.
 
 	#Documentation: https://docs.python.org/3/library/platform.html
@@ -91,7 +104,6 @@ def main():
 		print(f"Display Mode: 	{gpu.display_mode}")
 		print(f"Displa Active: 	{gpu.display_active}")
 		#Among others
-	"""
 	
 	#Documentation: https://diskinfo.readthedocs.io/en/latest/intro.html#how-to-use
 	print("\nDiskinfo Module Info:")
@@ -108,6 +120,7 @@ def main():
 			print(f"SMART Data: {disk.get_smart_data(sudo='sudo')}")
 			print(f"Disk Health: {disk.get_smart_data(sudo='sudo').healthy}")
 			#Among others			
+	"""
 
 if __name__ == "__main__":
 	main()
